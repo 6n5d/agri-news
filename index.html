@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="农业高校官方资讯聚合平台，支持按最近2天、3天或7天浏览公开资讯。"
+    />
+    <title>农业资讯中心｜农业高校官方资讯聚合平台</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d4938'/%3E%3Cpath d='M32 49V27m0 9c-8 0-14-5-15-13 8 0 14 5 15 13Zm0-7c7 0 12-4 13-11-7 0-12 4-13 11Z' fill='none' stroke='%23f4c96b' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="#" aria-label="农业资讯中心首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" role="img">
+              <path d="M24 38V19m0 11c-7 0-12-4-13-11 7 0 12 4 13 11Zm0-6c6 0 10-4 11-10-6 0-10 4-11 10Z" />
+            </svg>
+          </span>
+          <span class="brand-text">
+            <strong>农业资讯中心</strong>
+            <small>高校与科研单位资讯聚合平台</small>
+          </span>
+        </a>
+        <span class="header-note">公开资讯 · 原站直达</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">ACADEMIC AGRICULTURE NEWS</p>
+          <h1 id="page-title">最新农业高校资讯</h1>
+          <p class="intro-copy">汇集农业高校官网公开信息，支持按发布时间浏览</p>
+        </div>
+        <div class="intro-actions">
+          <div class="issue-meta" aria-label="资讯更新信息">
+            <span>数据更新时间</span>
+            <time id="today">—</time>
+            <span class="divider" aria-hidden="true"></span>
+            <span id="article-count">正在读取</span>
+          </div>
+          <button id="generate-daily-report" type="button" disabled>
+            生成今日日报
+          </button>
+        </div>
+      </section>
+
+      <section class="news-section" aria-labelledby="news-list-title">
+        <h2 id="news-list-title" class="visually-hidden">资讯列表</h2>
+
+        <div class="filter-panel" aria-label="资讯筛选">
+          <div class="filter-heading">
+            <div>
+              <span class="filter-kicker">FILTER</span>
+              <strong>筛选资讯</strong>
+            </div>
+            <button id="reset-filters" type="button">重置筛选</button>
+          </div>
+
+          <div class="filter-grid">
+            <label class="filter-field">
+              <span>来源单位</span>
+              <select id="source-filter">
+                <option value="all">全部来源</option>
+              </select>
+            </label>
+
+            <label class="filter-field">
+              <span>发布时间</span>
+              <select id="time-filter">
+                <option value="all">全部时间</option>
+                <option value="1d">最近1天</option>
+                <option value="2d">最近2天</option>
+                <option value="3d">最近3天</option>
+                <option value="7d">最近7天</option>
+                <option value="30d">最近30天</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="results-heading">
+          <p id="results-summary">正在整理资讯…</p>
+          <span>按发布时间从新到旧</span>
+        </div>
+
+        <div id="news-list" class="news-list" aria-live="polite" aria-busy="true">
+          <article class="status-card">
+            <span class="loading-dot" aria-hidden="true"></span>
+            <p>正在加载资讯…</p>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>农业资讯中心 · 汇集农业高校官网公开资讯</p>
+      <p>资讯版权归原发布单位所有，点击“查看原文”访问官方网站。</p>
+    </footer>
+  </body>
+</html>
