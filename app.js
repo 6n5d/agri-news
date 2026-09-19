@@ -272,55 +272,98 @@ function createZipBlob(files) {
   );
 }
 
-function createDailyReportBlob(articles, reportDate) {
-  const groups = new Map();
+// 日报按北京时间自然日期收录昨天和今天；网页时间筛选仍使用原来的滚动天数。
+function getBeijingDateKey(timestamp) {
+  return new Date(timestamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function selectDailyReportArticles(articles, currentTime) {
+  const today = getBeijingDateKey(currentTime);
+  const yesterday = getBeijingDateKey(currentTime - 24 * 60 * 60 * 1000);
+  const byTitle = new Map();
 
   articles.forEach((article) => {
-    const sourceName = normalizeSourceName(article.source);
-    if (!groups.has(sourceName)) {
-      groups.set(sourceName, []);
+    const publishedTime = new Date(article.publishedAt).getTime();
+    if (!Number.isFinite(publishedTime) || publishedTime > currentTime) return;
+    const dateKey = getBeijingDateKey(publishedTime);
+    if (dateKey !== yesterday && dateKey !== today) return;
+
+    const title = String(article.title || "").trim();
+    if (!title) return;
+    const previous = byTitle.get(title);
+    // 相同标题只保留较新记录；时间相同时 Map 中的第一条不变。
+    if (!previous || publishedTime > previous.publishedTime) {
+      byTitle.set(title, {
+        article: { ...article, title },
+        dateKey,
+        publishedTime,
+      });
     }
-    groups.get(sourceName).push(article);
   });
+
+  return {
+    dates: [yesterday, today],
+    entries: [...byTitle.values()],
+  };
+}
+
+function createDailyReportBlob(report) {
+  const { dates, entries } = report;
 
   const relationships = [];
   const bodyParts = [
     `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="160"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="36"/></w:rPr><w:t>农业科技资讯日报</w:t></w:r></w:p>`,
-    `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="280"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>日期：${escapeXml(
-      reportDate,
+    `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="280"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>生成日期：${escapeXml(
+      dates[1].replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$1年$2月$3日"),
     )}</w:t></w:r></w:p>`,
   ];
   let relationshipIndex = 1;
 
-  if (groups.size === 0) {
+  dates.forEach((dateKey, dayIndex) => {
     bodyParts.push(
-      `<w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>最近1天暂无资讯。</w:t></w:r></w:p>`,
-    );
-  }
-
-  groups.forEach((groupArticles, sourceName) => {
-    bodyParts.push(
-      `<w:p><w:pPr><w:spacing w:before="260" w:after="100"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>${escapeXml(
-        sourceName,
-      )}</w:t></w:r></w:p>`,
+      `<w:p><w:pPr><w:spacing w:before="280" w:after="160"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="30"/></w:rPr><w:t>${dayIndex === 0 ? "一" : "二"}、${escapeXml(
+        dateKey.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$1年$2月$3日"),
+      )}资讯</w:t></w:r></w:p>`,
     );
 
-    groupArticles.forEach((article) => {
-      const relationshipId = `rId${relationshipIndex}`;
-      relationshipIndex += 1;
-      relationships.push(
-        `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXml(
-          article.url,
-        )}" TargetMode="External"/>`,
-      );
+    const groups = new Map();
+    entries
+      .filter((entry) => entry.dateKey === dateKey)
+      .sort((a, b) => b.publishedTime - a.publishedTime)
+      .forEach(({ article }) => {
+        const sourceName = normalizeSourceName(article.source);
+        if (!groups.has(sourceName)) groups.set(sourceName, []);
+        groups.get(sourceName).push(article);
+      });
+
+    if (groups.size === 0) {
+      bodyParts.push(`<w:p><w:r><w:t>暂无资讯</w:t></w:r></w:p>`);
+    }
+
+    groups.forEach((groupArticles, sourceName) => {
       bodyParts.push(
-        `<w:p><w:pPr><w:spacing w:before="80" w:after="40"/><w:ind w:left="360" w:hanging="360"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>• ${escapeXml(
-          article.title,
+        `<w:p><w:pPr><w:spacing w:before="180" w:after="100"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/></w:rPr><w:t>${escapeXml(
+          sourceName,
         )}</w:t></w:r></w:p>`,
-        `<w:p><w:pPr><w:spacing w:after="100"/><w:ind w:left="360"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>原文链接：</w:t></w:r><w:hyperlink r:id="${relationshipId}"><w:r><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/><w:sz w:val="20"/></w:rPr><w:t>${escapeXml(
-          article.url,
-        )}</w:t></w:r></w:hyperlink></w:p>`,
       );
+
+      groupArticles.forEach((article, index) => {
+        const relationshipId = `rId${relationshipIndex}`;
+        relationshipIndex += 1;
+        relationships.push(
+          `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXml(
+            article.url,
+          )}" TargetMode="External"/>`,
+        );
+        bodyParts.push(
+          `<w:p><w:pPr><w:spacing w:before="80" w:after="40"/><w:ind w:left="360" w:hanging="360"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${index + 1}. ${escapeXml(
+            article.title,
+          )}</w:t></w:r></w:p>`,
+          `<w:p><w:pPr><w:spacing w:after="100"/><w:ind w:left="360"/></w:pPr><w:r><w:rPr><w:sz w:val="20"/></w:rPr><w:t>原文链接：</w:t></w:r><w:hyperlink r:id="${relationshipId}"><w:r><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/><w:sz w:val="20"/></w:rPr><w:t>${escapeXml(
+            article.url,
+          )}</w:t></w:r></w:hyperlink></w:p>`,
+        );
+      });
     });
   });
 
@@ -357,16 +400,9 @@ async function generateDailyReport() {
 
   try {
     const articles = await fetchNewsData();
-    const currentTime = Date.now();
-    const recentArticles = articles
-      .filter((article) =>
-        isWithinTimeRange(article.publishedAt, "1d", currentTime),
-      )
-      .sort(
-        (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt),
-      );
-    const reportDate = formatLocalDate(new Date(currentTime));
-    const reportBlob = createDailyReportBlob(recentArticles, reportDate);
+    const report = selectDailyReportArticles(articles, Date.now());
+    const reportDate = report.dates[1];
+    const reportBlob = createDailyReportBlob(report);
     const downloadUrl = URL.createObjectURL(reportBlob);
     const downloadLink = document.createElement("a");
 
